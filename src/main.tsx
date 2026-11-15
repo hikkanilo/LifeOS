@@ -17,7 +17,7 @@ type AnalyticsData = { points:MetricPoint[]; apps:AppUse[] };
 type AchievementItem = { id:string; title:string; description:string; icon:string; rarity:string; progress:number; target:number; unlocked_at:string|null };
 type DailyReport = { day:string; active_seconds:number; afk_seconds:number; key_presses:number; mouse_clicks:number; window_switches:number; app_count:number; top_app:string|null; achievement_count:number; new_records:string[] };
 type SystemInfo = { uptime_seconds:number; boot_time:string; idle_seconds:number; active_app:string; active_seconds:number; afk_seconds:number; key_presses:number; mouse_clicks:number };
-type Overview = { today_seconds:number; week_seconds:number; sessions_today:number; active:Session|null; recent:Session[]; system:SystemInfo; apps:AppUse[]; clipboard:ClipItem[]; power_events:PowerEvent[]; firefox_pages:FirefoxPage[]; monitoring_enabled:boolean; clipboard_enabled:boolean; clipboard_images_enabled:boolean; clipboard_max_mb:number; clipboard_excluded_apps:string; autostart_enabled:boolean; firefox_tracking_enabled:boolean; daily_report_enabled:boolean; daily_report_time:string; achievement_notifications_enabled:boolean; effects_enabled:boolean; achievement_notifications:AchievementItem[]; pending_daily_report:DailyReport|null; latest_daily_report:DailyReport|null };
+type Overview = { today_seconds:number; week_seconds:number; sessions_today:number; active:Session|null; recent:Session[]; system:SystemInfo; apps:AppUse[]; clipboard:ClipItem[]; power_events:PowerEvent[]; firefox_pages:FirefoxPage[]; monitoring_enabled:boolean; clipboard_enabled:boolean; clipboard_images_enabled:boolean; clipboard_max_mb:number; clipboard_excluded_apps:string; autostart_enabled:boolean; firefox_tracking_enabled:boolean; chrome_tracking_enabled:boolean; daily_report_enabled:boolean; daily_report_time:string; achievement_notifications_enabled:boolean; effects_enabled:boolean; theme:string; achievement_notifications:AchievementItem[]; pending_daily_report:DailyReport|null; latest_daily_report:DailyReport|null };
 type HardwareInfo = { computerModel:string; motherboard:string; osName:string; osVersion:string; processor:string; cpuCores:number; cpuThreads:number; cpuClockMhz:number; cpuTempC:number|null; gpu:{name:string;driverVersion:string;memoryBytes:number|null;temperatureC:number|null;loadPercent:number|null}[]; memoryTotalBytes:number; memoryUsedBytes:number; drives:{name:string;totalBytes:number;freeBytes:number}[]; sensorProvider:string|null };
 type Page = 'overview'|'activity'|'apps'|'devices'|'hardware'|'browser'|'clipboard'|'achievements'|'settings';
 
@@ -29,9 +29,11 @@ const todayLabel=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',m
 const formatBytes=(n:number)=>n>=1024**4?`${(n/1024**4).toFixed(1)} ТБ`:n>=1024**3?`${(n/1024**3).toFixed(1)} ГБ`:`${(n/1024**2).toFixed(0)} МБ`;
 const bestPoint=(points:MetricPoint[],field:'active_seconds'|'key_presses'|'mouse_clicks',low=false)=>points.reduce<MetricPoint|null>((best,p)=>!best||(low?p[field]<best[field]:p[field]>best[field])?p:best,null);
 
+function ThemePicker({value,change}:{value:string;change:(value:string)=>void}){return <section className="panel theme-picker"><div><b>Оформление</b><small>Выбери цветовую тему LifeOS. Настройка сохраняется автоматически.</small></div><select value={value} onChange={e=>change(e.target.value)}><option value="violet">Фиолетовая ночь</option><option value="graphite">Графит</option><option value="ocean">Океан</option><option value="rose">Розовый кварц</option></select></section>}
+function ChromeTracking({data,toggle,busy}:{data:Overview;toggle:(value:boolean)=>void;busy:boolean}){return <section className="panel browser-setting-card"><div><b>Отслеживание Google Chrome</b><small>Сохраняет только заголовок активной вкладки и время. URL, содержимое и ввод не читаются.</small></div><button className={`switch ${data.chrome_tracking_enabled?'on':''}`} aria-pressed={data.chrome_tracking_enabled} disabled={busy} onClick={()=>toggle(!data.chrome_tracking_enabled)}><i/></button></section>}
 function App(){
  const [page,setPage]=useState<Page>('overview'),[data,setData]=useState<Overview|null>(null),[label,setLabel]=useState(''),[clock,setClock]=useState(0),[error,setError]=useState(''),[busy,setBusy]=useState(false);
- const [achievementToast,setAchievementToast]=useState<AchievementItem|null>(null),[reportDialog,setReportDialog]=useState<DailyReport|null>(null),[aboutOpen,setAboutOpen]=useState(false),permissionAttempted=useRef(false),seenAchievements=useRef(new Set<string>()),seenReports=useRef(new Set<string>());
+const [achievementToast,setAchievementToast]=useState<AchievementItem|null>(null),[reportDialog,setReportDialog]=useState<DailyReport|null>(null),permissionAttempted=useRef(false),seenAchievements=useRef(new Set<string>()),seenReports=useRef(new Set<string>());
  const refresh=useCallback(async()=>{try{setData(await invoke<Overview>('overview'));setError('')}catch(e){setError(String(e))}},[]);
  useEffect(()=>{refresh();const t=setInterval(refresh,5000);return()=>clearInterval(t)},[refresh]);
  useEffect(()=>{if(!data)return;let live=true;const deliver=async()=>{let allowed=false;try{if(data.achievement_notifications_enabled||data.daily_report_enabled){allowed=await isPermissionGranted();if(!allowed&&!permissionAttempted.current){permissionAttempted.current=true;allowed=(await requestPermission())==='granted'}}}catch{}if(!live)return;for(const item of data.achievement_notifications){if(seenAchievements.current.has(item.id))continue;seenAchievements.current.add(item.id);setAchievementToast(item);window.setTimeout(()=>setAchievementToast(current=>current?.id===item.id?null:current),9000);if(allowed)sendNotification({title:`Достижение: ${item.title}`,body:item.description})}const report=data.pending_daily_report;if(report&&!seenReports.current.has(report.day)){seenReports.current.add(report.day);setReportDialog(report);if(allowed)sendNotification({title:'Твоя статистика за вчера',body:`${longTime(report.active_seconds)} активности · ${report.mouse_clicks.toLocaleString('ru-RU')} кликов · ${report.achievement_count} достижений`});invoke('mark_daily_report_notified',{day:report.day}).catch(()=>{})}};deliver();return()=>{live=false}},[data]);
@@ -49,14 +51,16 @@ function App(){
  const setDailyReport=(enabled:boolean,time:string)=>run(()=>invoke('set_daily_report',{enabled,time}));
  const setAchievementNotifications=(enabled:boolean)=>run(()=>invoke('set_achievement_notifications',{enabled}));
  const setEffects=(enabled:boolean)=>run(()=>invoke('set_effects',{enabled}));
+ const setTheme=(theme:string)=>run(()=>invoke('set_theme',{theme}));
  const setAutostart=(enabled:boolean)=>run(()=>invoke('set_autostart',{enabled}));
  const setFirefoxTracking=(enabled:boolean)=>run(()=>invoke('set_firefox_tracking',{enabled}));
+ const setChromeTracking=(enabled:boolean)=>run(()=>invoke('set_chrome_tracking',{enabled}));
  const copyClip=(text:string)=>run(()=>invoke('restore_clipboard',{text}));
  const copyClipImage=(id:number)=>run(()=>invoke('restore_clipboard_image',{id}));
  const removeClip=(id:number)=>run(()=>invoke('delete_clipboard_item',{id}));
  const title:Record<Page,string>={overview:'Обзор компьютера',activity:'Активность',apps:'Приложения',devices:'Клавиатура и мышь',hardware:'Характеристики ПК',browser:'Активность браузеров',clipboard:'Буфер обмена',achievements:'Достижения',settings:'Настройки'};
  const system=data?.system;
- return <div className={`shell ${data?.effects_enabled?'':'effects-off'}`}>
+ return <div className={`shell theme-${data?.theme||'violet'} ${data?.effects_enabled?'':'effects-off'}`}>
   <aside className="side"><div className="brand"><div className="brand-mark"><Activity size={18}/></div><span>life<span className="purple">os</span></span><span className="version">1.0</span></div><div className="nav-label">МОЙ КОМПЬЮТЕР</div>
    <Nav page={page} to="overview" set={setPage} icon={<LayoutDashboard size={17}/>} label="Обзор"/>
    <Nav page={page} to="activity" set={setPage} icon={<BarChart3 size={17}/>} label="Активность"/>
@@ -66,7 +70,7 @@ function App(){
    <Nav page={page} to="browser" set={setPage} icon={<Globe2 size={17}/>} label="Активность браузеров"/>
    <Nav page={page} to="clipboard" set={setPage} icon={<Clipboard size={17}/>} label="Буфер обмена"/>
    <Nav page={page} to="achievements" set={setPage} icon={<Award size={17}/>} label="Достижения"/>
-   <div className="side-bottom"><div className="privacy"><ShieldCheck size={15}/><span>Локальная база<br/>на этом компьютере</span></div><Nav page={page} to="settings" set={setPage} icon={<Settings size={17}/>} label="Настройки"/><div className="side-boosty-card"><div className="side-boosty-header"><div className="side-boosty-avatar"><Heart size={16} fill="#ff6b9d" color="#ff6b9d"/></div><div className="side-boosty-author"><strong>Hikkanilo &lt;3</strong><small>Сделано разработчиком</small></div></div><button className="side-boosty-btn" onClick={()=>setAboutOpen(true)} title="Подробнее о проекте"><Info size={14}/><span>Подробнее</span></button></div></div>
+   <div className="side-bottom"><div className="privacy"><ShieldCheck size={15}/><span>Локальная база<br/>на этом компьютере</span></div><Nav page={page} to="settings" set={setPage} icon={<Settings size={17}/>} label="Настройки"/><div className="side-boosty-card"><div className="side-boosty-header"><div className="side-boosty-avatar"><Heart size={16} fill="#ff6b9d" color="#ff6b9d"/></div><div className="side-boosty-author"><strong>Hikkanilo &lt;3</strong><small>Поддержать разработчика</small></div></div><button className="side-boosty-btn" onClick={openSupport} title="Открыть Boosty"><Heart size={14} fill="currentColor"/><span>Поддержать на Boosty</span></button></div></div>
   </aside>
   <main className="main"><header><div><div className="eyebrow">LIFEOS · ЛИЧНЫЙ ЖУРНАЛ</div><h1>{title[page]}</h1><div className="sub">{page==='overview'?`Сегодня — ${todayLabel}`:'Только данные с этого компьютера'}</div></div><div className="topright"><span className={`status-dot ${data?.monitoring_enabled?'':'off'}`}/><span>{data?.monitoring_enabled?'Запись статистики':'Пауза'}</span><button className="refresh-btn" title="Обновить" onClick={refresh}><RefreshCw size={15}/></button></div></header>
    {error&&<div className="error">Ошибка: {error}<button onClick={()=>setError('')}>Закрыть</button></div>}
@@ -76,14 +80,13 @@ function App(){
     {page==='apps'&&<AppsPage/>}
     {page==='devices'&&<DevicesPage data={data}/>}
     {page==='hardware'&&<HardwarePage/>}
-    {page==='browser'&&<BrowserPage data={data} toggle={setFirefoxTracking} clear={()=>run(()=>invoke('clear_firefox_history'))} busy={busy}/>}
+    {page==='browser'&&<><BrowserPage data={data} toggle={setFirefoxTracking} clear={()=>run(()=>invoke('clear_firefox_history'))} busy={busy}/><ChromeTracking data={data} toggle={setChromeTracking} busy={busy}/></>}
     {page==='clipboard'&&<ClipboardPage data={data} copy={copyClip} copyImage={copyClipImage} remove={removeClip} clear={()=>run(()=>invoke('clear_clipboard'))}/>}
     {page==='achievements'&&<AchievementsPage/>}
-    {page==='settings'&&<SettingsPage data={data} monitoring={setMonitoring} clipboard={setClipboard} clipboardImages={setClipboardImages} clipboardLimit={setClipboardLimit} clipboardExclusions={setClipboardExclusions} dailyReport={setDailyReport} achievementNotifications={setAchievementNotifications} effects={setEffects} autostart={setAutostart} busy={busy}/>}
+    {page==='settings'&&<><ThemePicker value={data.theme} change={setTheme}/><SettingsPage data={data} monitoring={setMonitoring} clipboard={setClipboard} clipboardImages={setClipboardImages} clipboardLimit={setClipboardLimit} clipboardExclusions={setClipboardExclusions} dailyReport={setDailyReport} achievementNotifications={setAchievementNotifications} effects={setEffects} autostart={setAutostart} busy={busy}/></>} 
    </>}
-   <footer><div className="footer-left"><span>LifeOS <i/> Сделано разработчиком <strong>Hikkanilo &lt;3</strong></span></div><div className="footer-right"><span>База: <code>LifeOS\data\lifeos.db</code></span></div></footer>
+   <footer><div className="footer-left"><span>LifeOS <i/> Локальная статистика</span></div><div className="footer-right"><span>База: <code>LifeOS\data\lifeos.db</code></span></div></footer>
   </main>
-  {aboutOpen&&<AboutDialog close={()=>setAboutOpen(false)}/>}
    {achievementToast&&<AchievementToast item={achievementToast} effects={data?.effects_enabled??true} close={()=>setAchievementToast(null)}/>}
   {reportDialog&&<DailyReportDialog report={reportDialog} close={()=>setReportDialog(null)}/>}
  </div>
@@ -175,7 +178,7 @@ function AboutDialog({close}:{close:()=>void}){
   <h2>LifeOS</h2>
   <p>Личный журнал активности компьютера. Все данные хранятся локально.</p>
   <div className="about-section"><b>Разработчики</b><span>Claude · Codex · Gemini · Hikkanilo</span></div>
-  <div className="about-section"><b>GitHub</b><button className="text-btn" onClick={()=>openLink('https://github.com/hikkanilo')}>github.com/hikkanilo</button></div>
+  <div className="about-section"><b>GitHub</b><button className="text-btn" onClick={()=>openLink('https://github.com/hikkanilo/LifeOS')}>github.com/hikkanilo/LifeOS</button></div>
   <div className="about-actions">
    <button className="support-button" onClick={()=>openLink('https://boosty.to/montonmef')}><Heart size={15} fill="currentColor"/>Поддержать на Boosty</button>
    <button className="primary" onClick={close}>Закрыть</button>

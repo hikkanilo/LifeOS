@@ -44,7 +44,7 @@ fn initialize(c: &Connection) -> Result<(), String> {
       CREATE TABLE IF NOT EXISTS achievement_unlocks(id TEXT PRIMARY KEY, unlocked_at TEXT NOT NULL, notified_at TEXT);
       CREATE TABLE IF NOT EXISTS daily_reports(day TEXT PRIMARY KEY, created_at TEXT NOT NULL, active_seconds INTEGER NOT NULL, afk_seconds INTEGER NOT NULL, key_presses INTEGER NOT NULL, mouse_clicks INTEGER NOT NULL, window_switches INTEGER NOT NULL DEFAULT 0, app_count INTEGER NOT NULL, top_app TEXT, achievement_count INTEGER NOT NULL DEFAULT 0, new_records TEXT NOT NULL DEFAULT '[]', notified_at TEXT);
       CREATE INDEX IF NOT EXISTS idx_firefox_pages_seen ON firefox_pages(last_seen DESC);
-      INSERT OR IGNORE INTO settings(key,value) VALUES ('monitoring_enabled','1'),('clipboard_enabled','0'),('clipboard_images_enabled','0'),('clipboard_max_mb','100'),('clipboard_excluded_apps',''),('daily_report_enabled','1'),('daily_report_time','21:00'),('achievement_notifications','1'),('effects_enabled','1'),('autostart_enabled','0'),('firefox_tracking_enabled','1');").map_err(|e| e.to_string())?;
+      INSERT OR IGNORE INTO settings(key,value) VALUES ('monitoring_enabled','1'),('clipboard_enabled','0'),('clipboard_images_enabled','0'),('clipboard_max_mb','100'),('clipboard_excluded_apps',''),('daily_report_enabled','1'),('daily_report_time','21:00'),('achievement_notifications','1'),('effects_enabled','1'),('theme','violet'),('autostart_enabled','0'),('firefox_tracking_enabled','1'),('chrome_tracking_enabled','1');").map_err(|e| e.to_string())?;
     ensure_column(
         c,
         "daily_metrics",
@@ -130,10 +130,12 @@ struct Overview {
     clipboard_excluded_apps: String,
     autostart_enabled: bool,
     firefox_tracking_enabled: bool,
+    chrome_tracking_enabled: bool,
     daily_report_enabled: bool,
     daily_report_time: String,
     achievement_notifications_enabled: bool,
     effects_enabled: bool,
+    theme: String,
     achievement_notifications: Vec<AchievementItem>,
     pending_daily_report: Option<DailyReport>,
     latest_daily_report: Option<DailyReport>,
@@ -604,6 +606,7 @@ fn overview(app: tauri::AppHandle) -> Result<Overview, String> {
     let achievement_notifications_enabled =
         setting_value(&c, "achievement_notifications", "1") == "1";
     let effects_enabled = setting_value(&c, "effects_enabled", "1") == "1";
+    let theme = setting_value(&c, "theme", "violet");
     let achievement_notifications =
         take_achievement_notifications(&c, achievement_notifications_enabled);
     let today = Local::now().date_naive().to_string();
@@ -672,10 +675,12 @@ fn overview(app: tauri::AppHandle) -> Result<Overview, String> {
             )
             .unwrap_or_default(),
         firefox_tracking_enabled: monitor::firefox_tracking_enabled(),
+        chrome_tracking_enabled: monitor::chrome_tracking_enabled(),
         daily_report_enabled,
         daily_report_time,
         achievement_notifications_enabled,
         effects_enabled,
+        theme,
         achievement_notifications,
         pending_daily_report: pending_day.as_deref().and_then(|day| read_report(&c, day)),
         latest_daily_report: latest_day.as_deref().and_then(|day| read_report(&c, day)),
@@ -699,6 +704,13 @@ fn hardware_snapshot() -> Result<hardware::HardwareInfo, String> {
 fn set_firefox_tracking(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     db(&app)?.execute("INSERT INTO settings(key,value) VALUES ('firefox_tracking_enabled',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [if enabled {"1"} else {"0"}]).map_err(|e|e.to_string())?;
     monitor::set_firefox_tracking(enabled);
+    Ok(())
+}
+
+#[tauri::command]
+fn set_chrome_tracking(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    db(&app)?.execute("INSERT INTO settings(key,value) VALUES ('chrome_tracking_enabled',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [if enabled {"1"} else {"0"}]).map_err(|e| e.to_string())?;
+    monitor::set_chrome_tracking(enabled);
     Ok(())
 }
 
@@ -841,15 +853,10 @@ fn set_clipboard_exclusions(app: tauri::AppHandle, apps: String) -> Result<(), S
 
 fn sync_power_events(path: std::path::PathBuf) {
     use std::os::windows::process::CommandExt;
-    let windir = std::env::var_os("WINDIR").unwrap_or_else(|| "C:\\Windows".into());
-    let modules = std::path::PathBuf::from(windir)
-        .join("System32")
-        .join("WindowsPowerShell")
-        .join("v1.0")
-        .join("Modules");
-    let script = "$ErrorActionPreference='SilentlyContinue'; $rows=@(Get-WinEvent -FilterHashtable @{LogName='System';Id=12,13,6005,6006,6008} -MaxEvents 100 | ForEach-Object { [pscustomobject]@{event_id=[int]$_.Id; happened_at=$_.TimeCreated.ToString('o')} }); ConvertTo-Json -InputObject $rows -Compress";
+    // Emit one tab-separated record per line. PowerShell serializes a one-item
+    // array as an object, which made the old JSON parser silently drop events.
+    let script = "$ErrorActionPreference='SilentlyContinue'; Get-WinEvent -FilterHashtable @{LogName='System';Id=12,13,41,1074,6005,6006,6008;StartTime=(Get-Date).AddDays(-30)} -MaxEvents 500 | ForEach-Object { \"$([int]$_.Id)`t$($_.TimeCreated.ToString('o'))\" }";
     let Ok(out) = std::process::Command::new("powershell.exe")
-        .env("PSModulePath", modules)
         .args([
             "-NoLogo",
             "-NoProfile",
@@ -865,22 +872,21 @@ fn sync_power_events(path: std::path::PathBuf) {
     if !out.status.success() {
         return;
     }
-    let Ok(rows) = serde_json::from_slice::<Vec<serde_json::Value>>(&out.stdout) else {
-        return;
-    };
     let Ok(c) = Connection::open(path) else {
         return;
     };
-    for row in rows {
-        let Some(id) = row.get("event_id").and_then(|v| v.as_i64()) else {
+    for line in String::from_utf8_lossy(&out.stdout).lines() {
+        let Some((id, at)) = line.split_once('\t') else {
             continue;
         };
-        let Some(at) = row.get("happened_at").and_then(|v| v.as_str()) else {
+        let Ok(id) = id.trim().parse::<i64>() else {
             continue;
         };
+        let at = at.trim();
         let label = match id {
             12 | 6005 => "Запуск Windows",
-            13 | 6006 => "Завершение Windows",
+            13 | 6006 | 1074 => "Завершение Windows",
+            41 => "Неожиданное выключение",
             6008 => "Аварийное выключение",
             _ => continue,
         };
@@ -1001,6 +1007,16 @@ fn set_effects(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     db(&app)?.execute("INSERT INTO settings(key,value) VALUES ('effects_enabled',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value",[if enabled{"1"}else{"0"}]).map_err(|e|e.to_string())?;
     Ok(())
 }
+
+#[tauri::command]
+fn set_theme(app: tauri::AppHandle, theme: String) -> Result<(), String> {
+    let normalized = match theme.as_str() {
+        "violet" | "graphite" | "ocean" | "rose" => theme,
+        _ => return Err("Unknown theme".to_string()),
+    };
+    db(&app)?.execute("INSERT INTO settings(key,value) VALUES ('theme',?1) ON CONFLICT(key) DO UPDATE SET value=excluded.value", [&normalized]).map_err(|e| e.to_string())?;
+    Ok(())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "windows")]
@@ -1047,6 +1063,7 @@ pub fn run() {
                 )
                 .unwrap_or_default(),
                 get("firefox_tracking_enabled", true),
+                get("chrome_tracking_enabled", true),
             );
             let event_path = db_path(app.handle());
             let _ = std::thread::Builder::new()
@@ -1113,8 +1130,10 @@ pub fn run() {
             set_daily_report,
             set_achievement_notifications,
             set_effects,
+            set_theme,
             hardware_snapshot,
             set_firefox_tracking,
+            set_chrome_tracking,
             clear_firefox_history,
             set_monitoring,
             set_clipboard_capture,

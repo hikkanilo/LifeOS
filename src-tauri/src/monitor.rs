@@ -16,6 +16,7 @@ use std::{
 static MONITORING: AtomicBool = AtomicBool::new(true);
 static CLIPBOARD: AtomicBool = AtomicBool::new(false);
 static FIREFOX_TRACKING: AtomicBool = AtomicBool::new(true);
+static CHROME_TRACKING: AtomicBool = AtomicBool::new(true);
 static CLIPBOARD_IMAGES: AtomicBool = AtomicBool::new(false);
 static CLIPBOARD_MAX_MB: AtomicUsize = AtomicUsize::new(100);
 static CLIPBOARD_EXCLUDED: OnceLock<RwLock<Vec<String>>> = OnceLock::new();
@@ -163,6 +164,9 @@ fn clipboard_app_is_excluded() -> bool {
 pub fn set_firefox_tracking(enabled: bool) {
     FIREFOX_TRACKING.store(enabled, Ordering::Relaxed);
 }
+pub fn set_chrome_tracking(enabled: bool) {
+    CHROME_TRACKING.store(enabled, Ordering::Relaxed);
+}
 pub fn monitoring_enabled() -> bool {
     MONITORING.load(Ordering::Relaxed)
 }
@@ -172,7 +176,11 @@ pub fn clipboard_enabled() -> bool {
 pub fn firefox_tracking_enabled() -> bool {
     FIREFOX_TRACKING.load(Ordering::Relaxed)
 }
+pub fn chrome_tracking_enabled() -> bool {
+    CHROME_TRACKING.load(Ordering::Relaxed)
+}
 
+#[allow(clippy::too_many_arguments)]
 pub fn start(
     path: PathBuf,
     monitor: bool,
@@ -181,6 +189,7 @@ pub fn start(
     clipboard_max_mb: usize,
     clipboard_excluded: &str,
     firefox_tracking: bool,
+    chrome_tracking: bool,
 ) {
     set_monitoring(monitor);
     set_clipboard(clipboard);
@@ -188,6 +197,7 @@ pub fn start(
     set_clipboard_max_mb(clipboard_max_mb);
     set_clipboard_excluded_apps(clipboard_excluded);
     set_firefox_tracking(firefox_tracking);
+    set_chrome_tracking(chrome_tracking);
     let _ = thread::Builder::new()
         .name("lifeos-monitor".into())
         .spawn(move || monitor_loop(path));
@@ -656,21 +666,30 @@ fn monitor_loop(path: PathBuf) {
                 if !current_app.is_empty() && current_app != "LifeOS" {
                     *apps.entry(current_app.clone()).or_insert(0) += 1;
                 }
-                if FIREFOX_TRACKING.load(Ordering::Relaxed)
-                    && firefox_sample.elapsed() >= Duration::from_secs(2)
-                {
+                let browser_tracking = FIREFOX_TRACKING.load(Ordering::Relaxed)
+                    || CHROME_TRACKING.load(Ordering::Relaxed);
+                if browser_tracking && firefox_sample.elapsed() >= Duration::from_secs(2) {
                     let (app, title) = foreground_window_info();
                     current_firefox_title = if app.eq_ignore_ascii_case("firefox.exe") {
-                        clean_firefox_title(&title)
+                        FIREFOX_TRACKING
+                            .load(Ordering::Relaxed)
+                            .then(|| clean_firefox_title(&title))
+                            .flatten()
                     } else if app.eq_ignore_ascii_case("chrome.exe") {
-                        clean_chrome_title(&title)
+                        CHROME_TRACKING
+                            .load(Ordering::Relaxed)
+                            .then(|| clean_chrome_title(&title))
+                            .flatten()
                     } else {
                         None
                     };
                     firefox_sample = Instant::now();
                 }
-                if FIREFOX_TRACKING.load(Ordering::Relaxed)
-                    && (current_app.eq_ignore_ascii_case("firefox.exe") || current_app.eq_ignore_ascii_case("chrome.exe"))
+                if browser_tracking
+                    && ((current_app.eq_ignore_ascii_case("firefox.exe")
+                        && FIREFOX_TRACKING.load(Ordering::Relaxed))
+                        || (current_app.eq_ignore_ascii_case("chrome.exe")
+                            && CHROME_TRACKING.load(Ordering::Relaxed)))
                 {
                     if let Some(title) = &current_firefox_title {
                         *firefox_pages.entry(title.clone()).or_insert(0) += 1;
@@ -680,7 +699,7 @@ fn monitor_loop(path: PathBuf) {
                 afk += 1;
             }
         }
-        if !FIREFOX_TRACKING.load(Ordering::Relaxed) {
+        if !FIREFOX_TRACKING.load(Ordering::Relaxed) && !CHROME_TRACKING.load(Ordering::Relaxed) {
             current_firefox_title = None;
         }
         if CLIPBOARD.load(Ordering::Relaxed) && last_clip.elapsed() >= Duration::from_secs(1) {
