@@ -1,0 +1,38 @@
+{
+  "name": "lifeos",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-notification": "^2.8.1",
+    "@tauri-apps/plugin-opener": "^2.7.3",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.15.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "~5.7.2",
+    "vite": "^6.0.5"
+  },
+  "description": "Private, local-first personal activity dashboard for Windows",
+  "author": "Hikkanilo",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hikkanilo/LifeOS.git"
+  },
+  "homepage": "https://github.com/hikkanilo/LifeOS#readme",
+  "bugs": {
+    "url": "https://github.com/hikkanilo/LifeOS/issues"
+  }
+}

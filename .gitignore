@@ -1,0 +1,31 @@
+# User data and private telemetry
+data/**
+backups/**
+logs/**
+*.db
+*.db-shm
+*.db-wal
+clipboard-images/**
+
+# Local build output
+node_modules/
+dist/
+src-tauri/target/
+target/
+src-tauri/gen/schemas/
+release/*.exe
+release/*.msi
+release/*.zip
+release/*.nsis
+*.pdb
+*.log
+*.tsbuildinfo
+
+# Local configuration and editor state
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini

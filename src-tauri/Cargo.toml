@@ -1,0 +1,36 @@
+[package]
+name = "lifeos"
+version = "0.1.0"
+description = "Private, local-first personal activity dashboard for Windows"
+authors = ["Hikkanilo"]
+license = "MIT"
+repository = "https://github.com/hikkanilo/LifeOS"
+edition = "2021"
+
+[lib]
+name = "lifeos_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+tauri-plugin-notification = "2"
+tauri-plugin-opener = "2"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_Security"] }
+nvapi = "0.1.4"
+
+
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+

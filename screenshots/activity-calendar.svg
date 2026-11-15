@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" style="background:#08080b; font-family:'Segoe UI',system-ui,-apple-system,sans-serif;">
+  <defs>
+    <linearGradient id="calBg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#14111d"/>
+      <stop offset="100%" stop-color="#0a0a0f"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="960" height="400" fill="#08080b"/>
+
+  <g transform="translate(30, 24)">
+    <!-- Title Area -->
+    <text x="0" y="16" fill="#777783" font-size="9" font-weight="700" letter-spacing="1">LIFEOS · АКТИВНОСТЬ</text>
+    <text x="0" y="42" fill="#f5f5f7" font-size="22" font-weight="700">Годовой календарь активности</text>
+    <text x="0" y="62" fill="#92929d" font-size="11">Каждая ячейка — день за компьютером · Реальные дневные агрегаты из базы SQLite</text>
+
+    <!-- Year stats summary -->
+    <g transform="translate(0, 80)">
+      <rect x="0" y="0" width="210" height="60" rx="8" fill="#141319" stroke="#24232c"/>
+      <text x="16" y="22" fill="#83818c" font-size="9">ВСЕГО ЗА ГОД</text>
+      <text x="16" y="46" fill="#f5f5f7" font-size="16" font-weight="700">1 420 ч 35 мин</text>
+
+      <rect x="230" y="0" width="210" height="60" rx="8" fill="#141319" stroke="#24232c"/>
+      <text x="246" y="22" fill="#83818c" font-size="9">ДНЕЙ С АКТИВНОСТЬЮ</text>
+      <text x="246" y="46" fill="#f5f5f7" font-size="16" font-weight="700">284 дня</text>
+
+      <rect x="460" y="0" width="210" height="60" rx="8" fill="#141319" stroke="#24232c"/>
+      <text x="476" y="22" fill="#83818c" font-size="9">В СРЕДНЕМ В ДЕНЬ</text>
+      <text x="476" y="46" fill="#f5f5f7" font-size="16" font-weight="700">5 ч 02 мин</text>
+
+      <rect x="690" y="0" width="210" height="60" rx="8" fill="#141319" stroke="#24232c"/>
+      <text x="706" y="22" fill="#83818c" font-size="9">САМЫЙ АКТИВНЫЙ ДЕНЬ</text>
+      <text x="706" y="46" fill="#e2b4f5" font-size="16" font-weight="700">12 ч 40 мин</text>
+    </g>
+
+    <!-- Calendar Panel -->
+    <g transform="translate(0, 160)">
+      <rect x="0" y="0" width="900" height="180" rx="10" fill="url(#calBg)" stroke="#2c2838"/>
+      
+      <!-- Months header -->
+      <g transform="translate(25, 25)" fill="#8a8792" font-size="9">
+        <text x="0" y="0">Янв</text>
+        <text x="70" y="0">Фев</text>
+        <text x="140" y="0">Мар</text>
+        <text x="210" y="0">Апр</text>
+        <text x="280" y="0">Май</text>
+        <text x="350" y="0">Июн</text>
+        <text x="420" y="0">Июл</text>
+        <text x="490" y="0">Авг</text>
+        <text x="560" y="0">Сен</text>
+        <text x="630" y="0">Окт</text>
+        <text x="700" y="0">Ноя</text>
+        <text x="770" y="0">Дек</text>
+      </g>
+
+      <!-- Simulated Grid Pattern -->
+      <g transform="translate(25, 38)">
+        <!-- Generate 52 columns of 7 rows -->
+        <!-- We use repeating rect patterns with colors representing levels -->
+        <defs>
+          <pattern id="weekCol" width="16" height="105" patternUnits="userSpaceOnUse">
+            <rect x="0" y="0" width="12" height="12" rx="2.5" fill="#211a2b" stroke="#332742"/>
+            <rect x="0" y="15" width="12" height="12" rx="2.5" fill="#38274f" stroke="#493263"/>
+            <rect x="0" y="30" width="12" height="12" rx="2.5" fill="#503474" stroke="#654393"/>
+            <rect x="0" y="45" width="12" height="12" rx="2.5" fill="#7046a6" stroke="#8357bc"/>
+            <rect x="0" y="60" width="12" height="12" rx="2.5" fill="#9360d1" stroke="#a775e3"/>
+            <rect x="0" y="75" width="12" height="12" rx="2.5" fill="#b487ed" stroke="#c39af5"/>
+            <rect x="0" y="90" width="12" height="12" rx="2.5" fill="#38274f" stroke="#493263"/>
+          </pattern>
+        </defs>
+        <rect x="0" y="0" width="850" height="105" fill="url(#weekCol)"/>
+      </g>
+
+      <!-- Legend -->
+      <g transform="translate(25, 158)">
+        <text x="0" y="10" fill="#9b98a3" font-size="10">Нажмите на любой день для подробной статистики за сутки</text>
+        
+        <g transform="translate(680, 0)">
+          <text x="0" y="10" fill="#817e89" font-size="9">Меньше</text>
+          <rect x="45" y="0" width="11" height="11" rx="2" fill="#111015" stroke="#24222b"/>
+          <rect x="60" y="0" width="11" height="11" rx="2" fill="#211a2b"/>
+          <rect x="75" y="0" width="11" height="11" rx="2" fill="#38274f"/>
+          <rect x="90" y="0" width="11" height="11" rx="2" fill="#503474"/>
+          <rect x="105" y="0" width="11" height="11" rx="2" fill="#7046a6"/>
+          <rect x="120" y="0" width="11" height="11" rx="2" fill="#9360d1"/>
+          <rect x="135" y="0" width="11" height="11" rx="2" fill="#b487ed"/>
+          <rect x="150" y="0" width="11" height="11" rx="2" fill="#d2b4ff"/>
+          <text x="170" y="10" fill="#817e89" font-size="9">Больше</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
