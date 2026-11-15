@@ -34,3 +34,15 @@
 .footer-support-btn{background:none;border:0;color:#d19ec6;font-size:10px;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:0;transition:color .15s ease}
 .footer-support-btn:hover{color:#ff94c8;text-decoration:underline}
 .footer-support-btn svg{color:#ff6b9d}
+
+
+/* Sidebar Bottom Boosty & Author Card (replaces generic profile name) */
+.side-boosty-card{margin:10px 0 0 0;padding:12px 11px;border:1px solid #4a285d;border-radius:11px;background:linear-gradient(145deg,#1f142b 0%,#15101f 100%);display:flex;flex-direction:column;gap:10px;box-shadow:0 4px 18px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.05)}
+.side-boosty-header{display:flex;align-items:center;gap:10px}
+.side-boosty-avatar{width:34px;height:34px;border-radius:10px;background:#351a42;border:1px solid #6b3582;display:grid;place-items:center;flex-shrink:0;box-shadow:0 2px 8px rgba(255,107,157,0.25)}
+.side-boosty-author{min-width:0;flex:1}
+.side-boosty-author strong{display:block;font-family:Manrope,sans-serif;font-size:13px;font-weight:700;color:#f7d2e8;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-boosty-author small{display:block;font-size:9px;color:#a49cb5;margin-top:2px}
+.side-boosty-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;height:32px;border:1px solid #8e4ba5;border-radius:8px;background:linear-gradient(135deg,#74348a 0%,#9c42a8 100%);color:#ffffff;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.18s ease;box-shadow:0 3px 12px rgba(156,66,168,0.35)}
+.side-boosty-btn:hover{background:linear-gradient(135deg,#8a3ea3 0%,#b34bc2 100%);border-color:#c96ce0;transform:translateY(-1px);box-shadow:0 5px 16px rgba(179,75,194,0.5)}
+.side-boosty-btn svg{color:#ffb8d9;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))}
