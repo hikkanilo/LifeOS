@@ -274,6 +274,31 @@ fn clean_firefox_title(raw: &str) -> Option<String> {
         .collect();
     (!cleaned.is_empty()).then_some(cleaned)
 }
+fn clean_chrome_title(raw: &str) -> Option<String> {
+    let lower = raw.to_lowercase();
+    if lower.contains("incognito") || lower.contains("инкогнито") {
+        return None;
+    }
+    let mut title = raw.trim();
+    for suffix in [
+        " — Google Chrome",
+        " - Google Chrome",
+        " — Chrome",
+        " - Chrome",
+    ] {
+        if let Some(value) = title.strip_suffix(suffix) {
+            title = value.trim();
+            break;
+        }
+    }
+    let cleaned: String = title
+        .chars()
+        .filter(|ch| !ch.is_control())
+        .take(200)
+        .collect();
+    (!cleaned.is_empty()).then_some(cleaned)
+}
+
 fn flush_firefox_pages(path: &PathBuf, pages: &mut HashMap<String, i64>) {
     if let Ok(mut c) = Connection::open(path) {
         if let Ok(tx) = c.transaction() {
@@ -637,13 +662,15 @@ fn monitor_loop(path: PathBuf) {
                     let (app, title) = foreground_window_info();
                     current_firefox_title = if app.eq_ignore_ascii_case("firefox.exe") {
                         clean_firefox_title(&title)
+                    } else if app.eq_ignore_ascii_case("chrome.exe") {
+                        clean_chrome_title(&title)
                     } else {
                         None
                     };
                     firefox_sample = Instant::now();
                 }
                 if FIREFOX_TRACKING.load(Ordering::Relaxed)
-                    && current_app.eq_ignore_ascii_case("firefox.exe")
+                    && (current_app.eq_ignore_ascii_case("firefox.exe") || current_app.eq_ignore_ascii_case("chrome.exe"))
                 {
                     if let Some(title) = &current_firefox_title {
                         *firefox_pages.entry(title.clone()).or_insert(0) += 1;
